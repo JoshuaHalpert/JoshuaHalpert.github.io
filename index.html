@@ -11,7 +11,7 @@
     :root { color-scheme: dark; }
     html, body {
       margin: 0; height: 100%; background: #0f1115; color: #e8e8e8;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Apple Color Emoji, Segoe UI Emoji;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
       overflow: hidden;
     }
     header {
@@ -22,31 +22,30 @@
       border-bottom: 1px solid #191c22;
     }
     header h1 { font-size: 1rem; margin: 0; font-weight: 600; opacity: .9; }
-    header .zoom {
-      margin-left: auto; display: inline-flex; gap: .5rem; align-items: center;
-    }
+    header .zoom { margin-left: auto; display: inline-flex; gap: .5rem; align-items: center; }
     header .zoom button {
       background: #1a1f29; color: #e8e8e8; border: 1px solid #2a2f3a;
       padding: .35rem .6rem; border-radius: .5rem; cursor: pointer;
     }
     header .zoom button:hover { background: #222838; }
     #pdf-scroll {
-      height: calc(100vh - 52px); /* header height approx */
+      height: calc(100vh - 52px);
       overflow: auto; -webkit-overflow-scrolling: touch;
-      display: flex; flex-direction: column; align-items: center;
+      display: flex; flex-direction: column; align-items: stretch;
       padding: 1rem .5rem 2rem;
       gap: 1rem;
     }
     .page {
-      position: relative;
-      width: min(100%, 1100px);  /* cap width on large screens */
-      display: grid;
-      place-items: center;
+      width: min(100%, 1100px);
+      margin: 0 auto;   /* center reliably */
     }
     canvas {
-      width: 100%; height: auto;
+      display: block;   /* avoid inline baseline gaps */
+      width: 100%;
+      height: auto;
       box-shadow: 0 8px 28px rgba(0,0,0,.45);
-      border-radius: 8px; background: #0b0d12;
+      border-radius: 8px;
+      background: #0b0d12;
     }
     .skeleton {
       width: 100%; aspect-ratio: 8.5 / 11; border-radius: 8px;
@@ -54,11 +53,10 @@
       background-size: 200% 100%;
       animation: shimmer 1.3s infinite;
       box-shadow: 0 8px 28px rgba(0,0,0,.45);
+      margin: 0 auto;
     }
     @keyframes shimmer { 0%{background-position: 200% 0;} 100%{background-position: -200% 0;} }
-    .hint {
-      font-size: .9rem; opacity: .7; margin: .25rem 0 0; text-align: center;
-    }
+    .hint { font-size: .9rem; opacity: .7; margin: .25rem auto 0; text-align: center; width: min(100%, 1100px); }
     .error { color: #ff6b6b; }
   </style>
 </head>
@@ -79,55 +77,25 @@
   <script>
     // ---------- CONFIG ----------
     const PDF_URL = "JoshuaHalpertPortfolio.pdf";
-    const MAX_CSS_WIDTH_PX = 1100;     // page max width on desktop
-    const BASE_ZOOM = 1;               // default CSS zoom multiplier
-    const ZOOM_STEP = 0.1;             // +/- 10%
+    const MAX_CSS_WIDTH_PX = 1100;     // desktop cap
+    const BASE_ZOOM = 1;
+    const ZOOM_STEP = 0.1;
     // ----------------------------
 
-    const dpr = Math.max(1, window.devicePixelRatio || 1);
     const container = document.getElementById("pdf-scroll");
     const zoomPct = document.getElementById("zoomPct");
     const btnIn = document.getElementById("zoomIn");
     const btnOut = document.getElementById("zoomOut");
     let cssZoom = BASE_ZOOM;
     let pdfDoc = null;
-    let pageViewports = []; // cache 1x viewports
 
-    // required worker for pdf.js
+    // Required worker for pdf.js
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-    // Debounce helper
     const debounce = (fn, ms=200) => {
       let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
     };
-
-    // Render a single page at high DPI, but display at CSS width for crispness
-    async function renderPage(pageNum, canvas, cssWidth) {
-      const page = await pdfDoc.getPage(pageNum);
-      const baseViewport = page.getViewport({ scale: 1 });
-      const aspect = baseViewport.height / baseViewport.width;
-
-      // Desired CSS size (layout)
-      const cssW = Math.min(cssWidth, MAX_CSS_WIDTH_PX) * cssZoom;
-      const cssH = cssW * aspect;
-
-      // Internal bitmap size (rendering) -> multiply by DPR
-      const scaleForCSS = cssW / baseViewport.width;       // how much to scale to reach our CSS width
-      const renderScale = scaleForCSS * dpr;                // up-scale for retina crispness
-      const viewport = page.getViewport({ scale: renderScale });
-
-      canvas.width  = Math.floor(viewport.width);
-      canvas.height = Math.floor(viewport.height);
-      canvas.style.width  = `${cssW}px`;
-      canvas.style.height = `${cssH}px`;
-
-      const ctx = canvas.getContext("2d", { alpha: false });
-      // Improve crispness on some browsers
-      ctx.imageSmoothingEnabled = false;
-
-      await page.render({ canvasContext: ctx, viewport }).promise;
-    }
 
     function pageShell(pageNum) {
       const wrapper = document.createElement("div");
@@ -144,15 +112,56 @@
       hint.className = "hint";
       hint.textContent = `Page ${pageNum}`;
 
+      container.appendChild(wrapper);
       wrapper.appendChild(skeleton);
       wrapper.appendChild(canvas);
-      wrapper.appendChild(hint);
-      return { wrapper, canvas, skeleton, hint };
+      container.appendChild(hint);
+
+      return { wrapper, canvas, skeleton };
     }
 
-    // Lazy render via IntersectionObserver
+    // High-DPI crisp rendering using pdf.js 'transform' outputScale
+    async function renderPage(pageNum, canvas, cssWidth) {
+      const page = await pdfDoc.getPage(pageNum);
+
+      // Respect the PDF’s inherent rotation to avoid upside-down pages
+      const rotation = page.rotate || 0;
+
+      // 1x viewport to compute aspect ratio at correct rotation
+      const baseViewport = page.getViewport({ scale: 1, rotation });
+      const aspect = baseViewport.height / baseViewport.width;
+
+      // CSS size for layout (fit width)
+      const cssW = Math.min(cssWidth, MAX_CSS_WIDTH_PX) * cssZoom;
+      const cssH = cssW * aspect;
+
+      // Scale to reach our CSS width
+      const scaleForCSS = cssW / baseViewport.width;
+      const viewport = page.getViewport({ scale: scaleForCSS, rotation });
+
+      // High-DPI backing store
+      const outputScale = Math.max(1, window.devicePixelRatio || 1);
+      canvas.width  = Math.floor(viewport.width  * outputScale);
+      canvas.height = Math.floor(viewport.height * outputScale);
+      canvas.style.width  = `${viewport.width}px`;   // CSS size
+      canvas.style.height = `${viewport.height}px`;
+
+      const ctx = canvas.getContext("2d", { alpha: false });
+      ctx.imageSmoothingEnabled = false;
+
+      // Use transform for DPR (pdf.js recommended approach)
+      const renderContext = {
+        canvasContext: ctx,
+        viewport,
+        transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null
+      };
+
+      await page.render(renderContext).promise;
+    }
+
+    // Lazy render visible pages
     const io = new IntersectionObserver((entries) => {
-      const cssWidth = container.clientWidth - 16; // padding fudge
+      const cssWidth = container.clientWidth - 16;
       entries.forEach(async (entry) => {
         if (!entry.isIntersecting) return;
         const el = entry.target;
@@ -175,24 +184,14 @@
       });
     }, { root: container, rootMargin: "200px 0px", threshold: 0.01 });
 
-    // Build page placeholders
-    async function buildPages() {
-      const count = pdfDoc.numPages;
-      for (let p = 1; p <= count; p++) {
-        const { wrapper } = pageShell(p);
-        container.appendChild(wrapper);
-        io.observe(wrapper);
-      }
-    }
-
-    // Re-render all visible pages on resize or zoom (for crispness)
+    // Re-render visible pages on resize/zoom
     const rerenderVisible = debounce(async () => {
       const cssWidth = container.clientWidth - 16;
       const pages = [...container.querySelectorAll(".page")];
       for (const el of pages) {
         const rect = el.getBoundingClientRect();
-        const visible = rect.bottom > 0 && rect.top < window.innerHeight + 600; // near viewport
-        if (!visible) continue;
+        const near = rect.bottom > 0 && rect.top < window.innerHeight + 600;
+        if (!near) continue;
         const pageNum = Number(el.dataset.page);
         const canvas = el.querySelector("canvas");
         const skeleton = el.querySelector(".skeleton");
@@ -201,20 +200,21 @@
         await renderPage(pageNum, canvas, cssWidth);
       }
       zoomPct.textContent = `${Math.round(cssZoom * 100)}%`;
-    }, 150);
+    }, 120);
 
     btnIn.addEventListener("click", () => { cssZoom = Math.min(3, cssZoom + ZOOM_STEP); rerenderVisible(); });
     btnOut.addEventListener("click", () => { cssZoom = Math.max(0.5, cssZoom - ZOOM_STEP); rerenderVisible(); });
     window.addEventListener("resize", rerenderVisible);
-    // Handle orientation changes on mobile
     window.addEventListener("orientationchange", () => setTimeout(rerenderVisible, 200));
 
-    // Init
     (async () => {
       try {
         pdfDoc = await pdfjsLib.getDocument(PDF_URL).promise;
-        await buildPages();      // placeholders + lazy load
-        rerenderVisible();       // render what's on screen at proper DPI
+        for (let p = 1; p <= pdfDoc.numPages; p++) {
+          const { wrapper } = pageShell(p);
+          io.observe(wrapper);
+        }
+        rerenderVisible();
       } catch (err) {
         container.innerHTML = `<p class="error">Could not load PDF. Make sure
           <code>${PDF_URL}</code> is next to <code>index.html</code>.</p>`;
