@@ -36,32 +36,37 @@
 <body>
   <div id="pdf-container"></div>
 
-  <!-- PDF.js CDN -->
+  <!-- PDF.js from CDN, no integrity attribute -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
-    const url = 'JoshuaHalpertPortfolio.pdf';
+    // After loading pdf.js, need to set the workerSrc
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
+    const url = 'JoshuaHalpertPortfolio.pdf';
     const container = document.getElementById('pdf-container');
 
-    const renderPDF = async (url) => {
-      const pdfjsLib = window['pdfjs-dist/build/pdf'];
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
+    async function renderPDF(url) {
       const pdf = await pdfjsLib.getDocument(url).promise;
       for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
         const page = await pdf.getPage(pageNum);
-        const viewport = page.getViewport({ scale: 1.5 });
+        // scale based on screen width maybe?
+        const scale = (window.innerWidth / page.getViewport({ scale: 1 }).width) * 0.9;
+        const viewport = page.getViewport({ scale: scale });
         const canvas = document.createElement("canvas");
         const context = canvas.getContext("2d");
-        canvas.height = viewport.height;
         canvas.width = viewport.width;
+        canvas.height = viewport.height;
 
         await page.render({ canvasContext: context, viewport: viewport }).promise;
         container.appendChild(canvas);
       }
-    };
+    }
 
-    renderPDF(url);
+    renderPDF(url).catch(err => {
+      console.error("Error rendering PDF:", err);
+      container.innerHTML = "<p>Could not load PDF.</p>";
+    });
   </script>
 </body>
 </html>
