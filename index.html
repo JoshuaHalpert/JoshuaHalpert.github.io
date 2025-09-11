@@ -5,139 +5,107 @@
   <title>Document</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <style>
-    /* Base: dark backdrop, no margins */
-    html, body { height: 100%; margin: 0; background:#000; }
-    #desktop, #mobile { position: fixed; inset: 0; }
-    /* Desktop viewer fills viewport */
-    #desktop embed, #desktop iframe {
-      width: 100dvw; height: 100dvh; border: 0; display: block;
-    }
-    /* Mobile canvas pages look clean and centered */
-    #mobile { overflow: auto; -webkit-overflow-scrolling: touch; }
-    .wrap { margin: 0 auto; max-width: 1200px; padding: 0 0 16px; }
+    /* Only used on mobile (PDF.js path) */
+    html, body { margin: 0; background: #000; color: #fff; }
+    #app { max-width: 1200px; margin: 0 auto; }
     .page {
       display: block; width: 100%; margin: 0 auto 16px;
       background:#111; box-shadow: 0 0 0 1px #222, 0 6px 24px rgba(0,0,0,.4);
       border-radius: 4px;
     }
-    /* Hide mobile container by default; JS will choose */
-    #mobile, #desktop { display: none; }
-
-    /* Optional: allow manual override via CSS class */
-    .force-desktop #desktop { display:block !important; }
-    .force-desktop #mobile  { display:none  !important; }
-    .force-mobile  #desktop { display:none  !important; }
-    .force-mobile  #mobile  { display:block !important; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
-  <!-- Desktop path (native viewer). Edge likes <embed>. -->
-  <div id="desktop">
-    <embed id="pdfEmbed" src="YourDocument.pdf#zoom=page-width" type="application/pdf">
-  </div>
+  <!-- Mobile render container -->
+  <div id="app" class="hidden"></div>
 
-  <!-- Mobile path (PDF.js, no toolbar) -->
-  <div id="mobile">
-    <div id="app" class="wrap"></div>
-  </div>
-
-  <noscript>
-    <meta http-equiv="refresh" content="0; url=YourDocument.pdf">
-  </noscript>
+  <noscript><meta http-equiv="refresh" content="0; url=JoshuaHalpertPortfolio.pdf"></noscript>
 
   <script>
-    const PDF_URL = "YourDocument.pdf"; // <-- change to your filename
-    const qs = new URLSearchParams(location.search);
-    const force = qs.get("view"); // allow ?view=desktop or ?view=mobile
+    const PDF_URL = "JoshuaHalpertPortfolio.pdf"; // <-- change to your filename
 
-    // Heuristic: treat as mobile if primary pointer is coarse (touch)
-    // OR narrow screens. You can tweak the width threshold if you like.
-    const isCoarse = matchMedia("(pointer: coarse)").matches;
-    const isNarrow = Math.min(screen.width, screen.height) <= 900;
+    // Conservative "is mobile" test: user agent + input type + small screens
+    const ua = navigator.userAgent || "";
+    const uaIsMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+    const coarse = matchMedia("(pointer: coarse)").matches;
+    const narrow = Math.min(window.screen.width, window.screen.height) <= 900;
+
+    // Allow manual override: ?view=mobile or ?view=desktop
+    const qs = new URLSearchParams(location.search);
+    const force = qs.get("view");
     const isMobile = force === "mobile" ? true :
                      force === "desktop" ? false :
-                     (isCoarse || isNarrow);
+                     (uaIsMobile || coarse || narrow);
 
-    const desktop = document.getElementById("desktop");
-    const mobile  = document.getElementById("mobile");
-
-    if (isMobile) {
-      // Mobile: use PDF.js renderer
-      mobile.style.display = "block";
-      initMobileViewer(PDF_URL);
+    if (!isMobile) {
+      // Desktop/PC → open PDF directly in the native viewer (clean & reliable)
+      location.replace(PDF_URL);
     } else {
-      // Desktop: use native viewer (clean, fast)
-      desktop.style.display = "block";
-      // Edge fallback: if <embed> fails, open the PDF directly.
-      setTimeout(() => {
-        const emb = document.getElementById("pdfEmbed");
-        // Some browsers don't expose contentDocument on <embed>; this is a best-effort nudge.
-        const looksBlank = !emb || emb.clientWidth === 0 || emb.clientHeight === 0;
-        if (looksBlank) location.href = PDF_URL;
-      }, 1500);
-    }
+      // Mobile → PDF.js (no toolbar, perfect scaling)
+      document.getElementById("app").classList.remove("hidden");
 
-    async function initMobileViewer(url) {
-      // Load PDF.js only when needed (saves weight on desktop)
-      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.js");
-      pdfjsLib.GlobalWorkerOptions.workerSrc =
-        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.js";
+      (async function initMobile() {
+        // Load PDF.js dynamically
+        await load("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.js");
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.js";
 
-      const app = document.getElementById("app");
-      let pdfDoc;
-      try {
-        pdfDoc = await pdfjsLib.getDocument(url).promise;
-      } catch (e) {
-        console.error(e);
-        location.href = url; // fallback to native viewer if something goes wrong
-        return;
-      }
+        try {
+          const pdf = await pdfjsLib.getDocument(PDF_URL).promise;
+          await renderAllPages(pdf);
+          window.addEventListener("resize", debounce(() => renderAllPages(pdf), 120), { passive: true });
+        } catch (err) {
+          // Fallback: if anything fails, just open the PDF
+          console.error(err);
+          location.replace(PDF_URL);
+        }
+      })();
 
-      const canvases = [];
-      const MAX_DPR = 2; // cap for performance
-      async function renderAll() {
-        const containerWidth = app.clientWidth || window.innerWidth;
-        const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+      async function renderAllPages(pdf) {
+        const app = document.getElementById("app");
+        const width = app.clientWidth || window.innerWidth;
+        const DPR = Math.min(window.devicePixelRatio || 1, 2); // cap for performance
 
-        for (let p = 1; p <= pdfDoc.numPages; p++) {
-          const page = await pdfDoc.getPage(p);
+        // Ensure the right number of canvases exist
+        while (app.children.length < pdf.numPages) {
+          const c = document.createElement("canvas");
+          c.className = "page";
+          app.appendChild(c);
+        }
+        while (app.children.length > pdf.numPages) {
+          app.removeChild(app.lastChild);
+        }
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
           const base = page.getViewport({ scale: 1 });
-          const scale = containerWidth / base.width;
+          const scale = width / base.width;
           const vp = page.getViewport({ scale });
 
-          let canvas = canvases[p];
-          if (!canvas) {
-            canvas = document.createElement("canvas");
-            canvas.className = "page";
-            canvases[p] = canvas;
-            app.appendChild(canvas);
-          }
-          // CSS size
-          canvas.style.width  = vp.width + "px";
+          const canvas = app.children[i - 1];
+          canvas.style.width = vp.width + "px";
           canvas.style.height = vp.height + "px";
-          // Backing store
-          canvas.width  = Math.floor(vp.width  * dpr);
-          canvas.height = Math.floor(vp.height * dpr);
+          canvas.width  = Math.floor(vp.width  * DPR);
+          canvas.height = Math.floor(vp.height * DPR);
 
           const ctx = canvas.getContext("2d", { alpha: false });
-          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
           await page.render({ canvasContext: ctx, viewport: vp }).promise;
         }
       }
 
-      let t; window.addEventListener("resize", () => {
-        clearTimeout(t); t = setTimeout(renderAll, 120);
-      }, { passive: true });
+      function load(src) {
+        return new Promise((res, rej) => {
+          const s = document.createElement("script");
+          s.src = src; s.onload = res; s.onerror = rej;
+          document.head.appendChild(s);
+        });
+      }
 
-      await renderAll();
-    }
-
-    function loadScript(src) {
-      return new Promise((resolve, reject) => {
-        const s = document.createElement("script");
-        s.src = src; s.onload = resolve; s.onerror = reject;
-        document.head.appendChild(s);
-      });
+      function debounce(fn, ms) {
+        let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+      }
     }
   </script>
 </body>
