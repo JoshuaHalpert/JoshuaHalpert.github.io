@@ -2,111 +2,150 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Document</title>
+  <title>Portfolio</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark light" />
   <style>
-    /* Only used on mobile (PDF.js path) */
-    html, body { margin: 0; background: #000; color: #fff; }
-    #app { max-width: 1200px; margin: 0 auto; }
-    .page {
-      display: block; width: 100%; margin: 0 auto 16px;
-      background:#111; box-shadow: 0 0 0 1px #222, 0 6px 24px rgba(0,0,0,.4);
-      border-radius: 4px;
+    /* Minimal, PDF-only layout */
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;            /* plain page look */
+      color: #000;
+      height: 100%;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
     }
-    .hidden { display: none; }
+    #pdf {                             /* container holds all pages */
+      width: 100%;
+      max-width: 100vw;
+      margin: 0;
+    }
+    .page {                            /* each page */
+      margin: 0;                       /* no outer chrome */
+    }
+    .page canvas {
+      display: block;
+      width: 100vw;                    /* fit page width to viewport */
+      height: auto;                    /* keep aspect */
+      background: #fff;                /* PDF page background */
+    }
+    /* Lightweight placeholder while pages render */
+    .skeleton {
+      width: 100vw;
+      aspect-ratio: 1/1.414;           /* A-series ratio as a safe default */
+      background: #fff;
+    }
+    noscript {
+      display: block;
+      padding: 16px;
+    }
   </style>
 </head>
 <body>
-  <!-- Mobile render container -->
-  <div id="app" class="hidden"></div>
+  <main id="pdf" role="main" aria-label="PDF"></main>
 
-  <noscript><meta http-equiv="refresh" content="0; url=JoshuaHalpertPortfolio.pdf"></noscript>
+  <noscript>
+    JavaScript is required to render the PDF. You can
+    <a href="./JoshuaHalpertPortfolio.pdf">open it directly</a>.
+  </noscript>
 
+  <!-- pdf.js (pinned version) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha512-9CvfXvH5wH3X6Kc0qUQ8WSjzSbeB1pY5O6tI0eJk1U6qf7y+2Ff3vYtq1Xo4Qp+q4NQ2D8gkZ6qzWwVg3yJf9g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script>
-    const PDF_URL = "JoshuaHalpertPortfolio.pdf"; // <-- change to your filename
+    // Match the worker to the library version above
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-    // Conservative "is mobile" test: user agent + input type + small screens
-    const ua = navigator.userAgent || "";
-    const uaIsMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
-    const coarse = matchMedia("(pointer: coarse)").matches;
-    const narrow = Math.min(window.screen.width, window.screen.height) <= 900;
+    const PDF_URL = "./JoshuaHalpertPortfolio.pdf";
+    const container = document.getElementById("pdf");
 
-    // Allow manual override: ?view=mobile or ?view=desktop
-    const qs = new URLSearchParams(location.search);
-    const force = qs.get("view");
-    const isMobile = force === "mobile" ? true :
-                     force === "desktop" ? false :
-                     (uaIsMobile || coarse || narrow);
-
-    if (!isMobile) {
-      // Desktop/PC → open PDF directly in the native viewer (clean & reliable)
-      location.replace(PDF_URL);
-    } else {
-      // Mobile → PDF.js (no toolbar, perfect scaling)
-      document.getElementById("app").classList.remove("hidden");
-
-      (async function initMobile() {
-        // Load PDF.js dynamically
-        await load("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.js");
-        pdfjsLib.GlobalWorkerOptions.workerSrc =
-          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.js";
-
-        try {
-          const pdf = await pdfjsLib.getDocument(PDF_URL).promise;
-          await renderAllPages(pdf);
-          window.addEventListener("resize", debounce(() => renderAllPages(pdf), 120), { passive: true });
-        } catch (err) {
-          // Fallback: if anything fails, just open the PDF
-          console.error(err);
-          location.replace(PDF_URL);
+    // Lazy render pages when they’re near the viewport
+    const io = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const holder = entry.target;
+        if (!holder.dataset.rendered) {
+          holder.dataset.rendered = "1";
+          renderPage(holder);
         }
-      })();
-
-      async function renderAllPages(pdf) {
-        const app = document.getElementById("app");
-        const width = app.clientWidth || window.innerWidth;
-        const DPR = Math.min(window.devicePixelRatio || 1, 2); // cap for performance
-
-        // Ensure the right number of canvases exist
-        while (app.children.length < pdf.numPages) {
-          const c = document.createElement("canvas");
-          c.className = "page";
-          app.appendChild(c);
-        }
-        while (app.children.length > pdf.numPages) {
-          app.removeChild(app.lastChild);
-        }
-
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const base = page.getViewport({ scale: 1 });
-          const scale = width / base.width;
-          const vp = page.getViewport({ scale });
-
-          const canvas = app.children[i - 1];
-          canvas.style.width = vp.width + "px";
-          canvas.style.height = vp.height + "px";
-          canvas.width  = Math.floor(vp.width  * DPR);
-          canvas.height = Math.floor(vp.height * DPR);
-
-          const ctx = canvas.getContext("2d", { alpha: false });
-          ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-          await page.render({ canvasContext: ctx, viewport: vp }).promise;
-        }
+        io.unobserve(holder);
       }
+    }, { rootMargin: "800px 0px" });
 
-      function load(src) {
-        return new Promise((res, rej) => {
-          const s = document.createElement("script");
-          s.src = src; s.onload = res; s.onerror = rej;
-          document.head.appendChild(s);
-        });
-      }
+    let pdfDoc = null;
 
-      function debounce(fn, ms) {
-        let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
-      }
+    async function renderPage(holder) {
+      const num = parseInt(holder.dataset.page, 10);
+      const page = await pdfDoc.getPage(num);
+
+      // Compute scale so the page's CSS width equals the viewport width
+      const cssWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+      const baseViewport = page.getViewport({ scale: 1 });
+      const scale = cssWidth / baseViewport.width;
+      const viewport = page.getViewport({ scale });
+
+      const dpr = window.devicePixelRatio || 1;
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d", { alpha: false });
+
+      canvas.width  = Math.max(1, Math.floor(viewport.width  * dpr));
+      canvas.height = Math.max(1, Math.floor(viewport.height * dpr));
+      canvas.style.width = Math.floor(viewport.width) + "px";
+      canvas.style.height = Math.floor(viewport.height) + "px";
+
+      holder.innerHTML = "";
+      holder.appendChild(canvas);
+
+      await page.render({
+        canvasContext: ctx,
+        transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined,
+        viewport
+      }).promise;
     }
+
+    (async () => {
+      try {
+        pdfDoc = await pdfjsLib.getDocument(PDF_URL).promise;
+
+        // Create empty holders for each page (for instant layout, no headers/footers)
+        for (let i = 1; i <= pdfDoc.numPages; i++) {
+          const section = document.createElement("section");
+          section.className = "page";
+          section.dataset.page = String(i);
+
+          const skeleton = document.createElement("div");
+          skeleton.className = "skeleton";
+          section.appendChild(skeleton);
+
+          container.appendChild(section);
+          io.observe(section);
+        }
+      } catch (e) {
+        console.error(e);
+        container.innerHTML = '<p style="padding:16px">Couldn’t render the PDF. <a href="./JoshuaHalpertPortfolio.pdf">Open it directly</a>.</p>';
+      }
+    })();
+
+    // Rebuild on resize to keep perfect fit-to-width
+    let t = null;
+    addEventListener("resize", () => {
+      clearTimeout(t);
+      t = setTimeout(() => {
+        if (!pdfDoc) return;
+        container.innerHTML = "";
+        for (let i = 1; i <= pdfDoc.numPages; i++) {
+          const section = document.createElement("section");
+          section.className = "page";
+          section.dataset.page = String(i);
+          const skeleton = document.createElement("div");
+          skeleton.className = "skeleton";
+          section.appendChild(skeleton);
+          container.appendChild(section);
+          io.observe(section);
+        }
+      }, 180);
+    }, { passive: true });
   </script>
 </body>
 </html>
