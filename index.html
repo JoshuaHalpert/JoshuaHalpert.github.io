@@ -6,40 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="dark light" />
   <style>
-    /* Minimal, PDF-only layout */
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: #ffffff;            /* plain page look */
-      color: #000;
-      height: 100%;
-      -webkit-font-smoothing: antialiased;
-      text-rendering: optimizeLegibility;
-    }
-    #pdf {                             /* container holds all pages */
-      width: 100%;
-      max-width: 100vw;
-      margin: 0;
-    }
-    .page {                            /* each page */
-      margin: 0;                       /* no outer chrome */
-    }
-    .page canvas {
-      display: block;
-      width: 100vw;                    /* fit page width to viewport */
-      height: auto;                    /* keep aspect */
-      background: #fff;                /* PDF page background */
-    }
-    /* Lightweight placeholder while pages render */
-    .skeleton {
-      width: 100vw;
-      aspect-ratio: 1/1.414;           /* A-series ratio as a safe default */
-      background: #fff;
-    }
-    noscript {
-      display: block;
-      padding: 16px;
-    }
+    html, body { margin:0; padding:0; background:#fff; color:#000; height:100%; }
+    #pdf { width:100%; max-width:100vw; margin:0; }
+    .page { margin:0; }
+    .page canvas { display:block; width:100vw; height:auto; background:#fff; }
+    .skeleton { width:100vw; aspect-ratio:1/1.414; background:#fff; }
+    .error { padding:16px; font:14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial; color:#b00020; }
+    noscript { display:block; padding:16px; }
   </style>
 </head>
 <body>
@@ -50,39 +23,47 @@
     <a href="./JoshuaHalpertPortfolio.pdf">open it directly</a>.
   </noscript>
 
-  <!-- pdf.js (pinned version) -->
+  <!-- pdf.js (pinned) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha512-9CvfXvH5wH3X6Kc0qUQ8WSjzSbeB1pY5O6tI0eJk1U6qf7y+2Ff3vYtq1Xo4Qp+q4NQ2D8gkZ6qzWwVg3yJf9g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script>
-    // Match the worker to the library version above
+    // Match worker to library version above
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
     const PDF_URL = "./JoshuaHalpertPortfolio.pdf";
     const container = document.getElementById("pdf");
 
-    // Lazy render pages when they’re near the viewport
     const io = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting) continue;
-        const holder = entry.target;
-        if (!holder.dataset.rendered) {
-          holder.dataset.rendered = "1";
-          renderPage(holder);
-        }
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        const holder = e.target;
+        if (!holder.dataset.rendered) { holder.dataset.rendered = "1"; renderPage(holder); }
         io.unobserve(holder);
       }
     }, { rootMargin: "800px 0px" });
 
     let pdfDoc = null;
 
+    function showError(msg) {
+      container.innerHTML = '<div class="error">' + msg.replace(/</g,"&lt;") + '</div>';
+    }
+
+    async function fetchPdfBytes(url) {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) {
+        throw new Error(`Failed to load PDF (${res.status} ${res.statusText}). Check the file name & path.`);
+      }
+      return await res.arrayBuffer();
+    }
+
     async function renderPage(holder) {
       const num = parseInt(holder.dataset.page, 10);
       const page = await pdfDoc.getPage(num);
 
-      // Compute scale so the page's CSS width equals the viewport width
-      const cssWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
-      const baseViewport = page.getViewport({ scale: 1 });
-      const scale = cssWidth / baseViewport.width;
+      // Fit-to-width scale
+      const vw = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+      const base = page.getViewport({ scale: 1 });
+      const scale = vw / base.width;
       const viewport = page.getViewport({ scale });
 
       const dpr = window.devicePixelRatio || 1;
@@ -106,28 +87,27 @@
 
     (async () => {
       try {
-        pdfDoc = await pdfjsLib.getDocument(PDF_URL).promise;
+        const bytes = await fetchPdfBytes(PDF_URL);              // <— clearer errors if 404
+        pdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise;
 
-        // Create empty holders for each page (for instant layout, no headers/footers)
+        // Build lightweight placeholders for each page
         for (let i = 1; i <= pdfDoc.numPages; i++) {
-          const section = document.createElement("section");
-          section.className = "page";
-          section.dataset.page = String(i);
-
-          const skeleton = document.createElement("div");
-          skeleton.className = "skeleton";
-          section.appendChild(skeleton);
-
-          container.appendChild(section);
-          io.observe(section);
+          const sec = document.createElement("section");
+          sec.className = "page";
+          sec.dataset.page = String(i);
+          const sk = document.createElement("div");
+          sk.className = "skeleton";
+          sec.appendChild(sk);
+          container.appendChild(sec);
+          io.observe(sec);
         }
-      } catch (e) {
-        console.error(e);
-        container.innerHTML = '<p style="padding:16px">Couldn’t render the PDF. <a href="./JoshuaHalpertPortfolio.pdf">Open it directly</a>.</p>';
+      } catch (err) {
+        console.error(err);
+        showError(err.message + ' — or try <a href="./JoshuaHalpertPortfolio.pdf">opening the PDF directly</a>.');
       }
     })();
 
-    // Rebuild on resize to keep perfect fit-to-width
+    // Rebuild on resize for perfect width fit
     let t = null;
     addEventListener("resize", () => {
       clearTimeout(t);
@@ -135,14 +115,14 @@
         if (!pdfDoc) return;
         container.innerHTML = "";
         for (let i = 1; i <= pdfDoc.numPages; i++) {
-          const section = document.createElement("section");
-          section.className = "page";
-          section.dataset.page = String(i);
-          const skeleton = document.createElement("div");
-          skeleton.className = "skeleton";
-          section.appendChild(skeleton);
-          container.appendChild(section);
-          io.observe(section);
+          const sec = document.createElement("section");
+          sec.className = "page";
+          sec.dataset.page = String(i);
+          const sk = document.createElement("div");
+          sk.className = "skeleton";
+          sec.appendChild(sk);
+          container.appendChild(sec);
+          io.observe(sec);
         }
       }, 180);
     }, { passive: true });
