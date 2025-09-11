@@ -9,10 +9,9 @@
       margin: 0;
       padding: 0;
       height: 100%;
-      background: #000;      /* hides any browser-added gaps */
-      overflow: hidden;      /* prevents double scroll on mobile */
+      background: #000;
+      overflow: hidden;
     }
-    /* Use dynamic viewport units to avoid URL bar issues on mobile */
     .viewer {
       position: fixed;
       inset: 0;
@@ -24,7 +23,6 @@
   </style>
 </head>
 <body>
-  <!-- `#zoom=page-width` asks Chrome/Android to fit width; many browsers honor it -->
-  <iframe class="viewer" src="JoshuaHalpertPortfolio.pdf#zoom=page-width"></iframe>
+  <embed class="viewer" src="JoshuaHalpertPortfolio.pdf#zoom=page-width" type="application/pdf">
 </body>
 </html>
