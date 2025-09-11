@@ -1,28 +1,102 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   <title>Document</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      background: #000;
-      overflow: hidden;
-    }
-    .viewer {
-      position: fixed;
-      inset: 0;
-      width: 100dvw;
-      height: 100dvh;
-      border: 0;
+    :root { --max-width: 1200px; }
+    html, body { margin: 0; padding: 0; background: #000; color: #fff; }
+    .wrap { margin: 0 auto; max-width: var(--max-width); }
+    .page {
       display: block;
+      width: 100%;
+      margin: 0 auto 16px;
+      background: #111;
+      box-shadow: 0 0 0 1px #222, 0 6px 24px rgba(0,0,0,.4);
+      border-radius: 4px;
     }
+    /* Hide any accidental text selection / long-press highlights */
+    canvas, .wrap { -webkit-tap-highlight-color: transparent; }
+    /* Optional: prevent scroll bounce gaps from showing white */
+    body { overscroll-behavior: none; }
+    /* Accessibility: hidden link in case JS/pdf rendering fails */
+    .fallback { position: fixed; inset: auto 12px 12px auto; opacity: .001; }
   </style>
+  <!-- PDF.js (no viewer UI) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.js"></script>
+  <script>
+    // Point the worker to the same version to avoid console warnings
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.js";
+  </script>
 </head>
 <body>
-  <embed class="viewer" src="JoshuaHalpertPortfolio.pdf#zoom=page-width" type="application/pdf">
+  <a class="fallback" href="JoshuaHalpertPortfolio.pdf">Open PDF</a>
+  <div id="app" class="wrap"></div>
+
+  <script>
+    const PDF_URL = "JoshuaHalpertPortfolio.pdf"; // <-- change to your filename
+    const app = document.getElementById("app");
+
+    let pdfDoc = null;
+    let canvases = [];
+    let pageViewports = []; // store intrinsic page sizes
+
+    // Render (or re-render) all pages to fit container width
+    async function renderAll() {
+      if (!pdfDoc) return;
+      const containerWidthCSS = Math.min(app.clientWidth, parseInt(getComputedStyle(document.documentElement).getPropertyValue('--max-width')) || app.clientWidth);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2); // cap DPR for perf
+
+      for (let p = 1; p <= pdfDoc.numPages; p++) {
+        const page = await pdfDoc.getPage(p);
+        const baseViewport = page.getViewport({ scale: 1 });
+        pageViewports[p] = baseViewport;
+
+        // scale so the CSS width fits container
+        const scale = containerWidthCSS / baseViewport.width;
+        const viewport = page.getViewport({ scale });
+
+        let canvas = canvases[p];
+        if (!canvas) {
+          canvas = document.createElement("canvas");
+          canvas.className = "page";
+          canvases[p] = canvas;
+          app.appendChild(canvas);
+        }
+
+        // Set canvas size: physical pixels = CSS size * DPR
+        canvas.style.width = viewport.width + "px";
+        canvas.style.height = viewport.height + "px";
+        canvas.width = Math.floor(viewport.width * dpr);
+        canvas.height = Math.floor(viewport.height * dpr);
+
+        const ctx = canvas.getContext("2d", { alpha: false });
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // scale once per page
+
+        await page.render({ canvasContext: ctx, viewport }).promise;
+      }
+    }
+
+    // Debounce resize to avoid thrashing
+    let resizeTimer = null;
+    function onResize() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(renderAll, 120);
+    }
+
+    (async function init() {
+      try {
+        pdfDoc = await pdfjsLib.getDocument(PDF_URL).promise;
+        await renderAll();
+        window.addEventListener("resize", onResize, { passive: true });
+      } catch (e) {
+        // If rendering fails (e.g., CORS or corrupt PDF), fall back to opening the file
+        console.error(e);
+        location.href = PDF_URL;
+      }
+    })();
+  </script>
 </body>
 </html>
