@@ -1,127 +1,67 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Portfolio</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="color-scheme" content="dark light" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Joshua Halpert Portfolio</title>
   <style>
-    html, body { margin:0; padding:0; background:#fff; color:#000; height:100%; }
-    #pdf { width:100%; max-width:100vw; margin:0; }
-    .page { margin:0; }
-    .page canvas { display:block; width:100vw; height:auto; background:#fff; }
-    .skeleton { width:100vw; aspect-ratio:1/1.414; background:#fff; }
-    .error { padding:16px; font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial; color:#b00020; }
-    noscript { display:block; padding:16px; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #121212;
+      color: white;
+      font-family: sans-serif;
+      overflow: hidden;
+    }
+
+    #pdf-container {
+      height: 100vh;
+      width: 100vw;
+      overflow-y: scroll;
+      -webkit-overflow-scrolling: touch;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    canvas {
+      margin: 1rem 0;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      max-width: 95%;
+      height: auto;
+    }
   </style>
 </head>
 <body>
-  <main id="pdf" role="main" aria-label="PDF"></main>
+  <div id="pdf-container"></div>
 
-  <noscript>
-    JavaScript is required to render the PDF. You can
-    <a href="./JoshuaHalpertPortfolio.pdf">open it directly</a>.
-  </noscript>
-
-  <!-- pdf.js without SRI to avoid integrity mismatch -->
-  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <!-- PDF.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
-    // Match worker to the library version above
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+    const url = 'JoshuaHalpertPortfolio.pdf';
 
-    const PDF_URL = "./JoshuaHalpertPortfolio.pdf";
-    const container = document.getElementById("pdf");
+    const container = document.getElementById('pdf-container');
 
-    const io = new IntersectionObserver((entries) => {
-      for (const e of entries) {
-        if (!e.isIntersecting) continue;
-        const holder = e.target;
-        if (!holder.dataset.rendered) { holder.dataset.rendered = "1"; renderPage(holder); }
-        io.unobserve(holder);
+    const renderPDF = async (url) => {
+      const pdfjsLib = window['pdfjs-dist/build/pdf'];
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+      const pdf = await pdfjsLib.getDocument(url).promise;
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
+        container.appendChild(canvas);
       }
-    }, { rootMargin: "800px 0px" });
+    };
 
-    let pdfDoc = null;
-
-    function showError(msg) {
-      container.innerHTML = '<div class="error">' + msg.replace(/</g,"&lt;") + '</div>';
-    }
-
-    async function fetchPdfBytes(url) {
-      const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok) throw new Error(`Failed to load PDF (${res.status} ${res.statusText}). Check the file name & path.`);
-      return await res.arrayBuffer();
-    }
-
-    async function renderPage(holder) {
-      const num = parseInt(holder.dataset.page, 10);
-      const page = await pdfDoc.getPage(num);
-
-      const vw = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
-      const base = page.getViewport({ scale: 1 });
-      const scale = vw / base.width;
-      const viewport = page.getViewport({ scale });
-
-      const dpr = window.devicePixelRatio || 1;
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d", { alpha: false });
-
-      canvas.width  = Math.max(1, Math.floor(viewport.width  * dpr));
-      canvas.height = Math.max(1, Math.floor(viewport.height * dpr));
-      canvas.style.width = Math.floor(viewport.width) + "px";
-      canvas.style.height = Math.floor(viewport.height) + "px";
-
-      holder.innerHTML = "";
-      holder.appendChild(canvas);
-
-      await page.render({
-        canvasContext: ctx,
-        transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined,
-        viewport
-      }).promise;
-    }
-
-    (async () => {
-      try {
-        const bytes = await fetchPdfBytes(PDF_URL);
-        pdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise;
-
-        for (let i = 1; i <= pdfDoc.numPages; i++) {
-          const sec = document.createElement("section");
-          sec.className = "page";
-          sec.dataset.page = String(i);
-          const sk = document.createElement("div");
-          sk.className = "skeleton";
-          sec.appendChild(sk);
-          container.appendChild(sec);
-          io.observe(sec);
-        }
-      } catch (err) {
-        console.error(err);
-        showError(err.message + ' — or try <a href="./JoshuaHalpertPortfolio.pdf">opening the PDF directly</a>.');
-      }
-    })();
-
-    // Rebuild on resize for perfect width fit
-    let t = null;
-    addEventListener("resize", () => {
-      clearTimeout(t);
-      t = setTimeout(() => {
-        if (!pdfDoc) return;
-        container.innerHTML = "";
-        for (let i = 1; i <= pdfDoc.numPages; i++) {
-          const sec = document.createElement("section");
-          sec.className = "page";
-          sec.dataset.page = String(i);
-          const sk = document.createElement("div");
-          sk.className = "skeleton";
-          sec.appendChild(sk);
-          container.appendChild(sec);
-          io.observe(sec);
-        }
-      }, 180);
-    }, { passive: true });
+    renderPDF(url);
   </script>
 </body>
 </html>
