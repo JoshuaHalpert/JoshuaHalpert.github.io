@@ -11,7 +11,7 @@
     .page { margin:0; }
     .page canvas { display:block; width:100vw; height:auto; background:#fff; }
     .skeleton { width:100vw; aspect-ratio:1/1.414; background:#fff; }
-    .error { padding:16px; font:14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial; color:#b00020; }
+    .error { padding:16px; font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial; color:#b00020; }
     noscript { display:block; padding:16px; }
   </style>
 </head>
@@ -23,12 +23,12 @@
     <a href="./JoshuaHalpertPortfolio.pdf">open it directly</a>.
   </noscript>
 
-  <!-- pdf.js (pinned) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha512-9CvfXvH5wH3X6Kc0qUQ8WSjzSbeB1pY5O6tI0eJk1U6qf7y+2Ff3vYtq1Xo4Qp+q4NQ2D8gkZ6qzWwVg3yJf9g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <!-- pdf.js without SRI to avoid integrity mismatch -->
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <script>
-    // Match worker to library version above
+    // Match worker to the library version above
     pdfjsLib.GlobalWorkerOptions.workerSrc =
-      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
 
     const PDF_URL = "./JoshuaHalpertPortfolio.pdf";
     const container = document.getElementById("pdf");
@@ -50,9 +50,7 @@
 
     async function fetchPdfBytes(url) {
       const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok) {
-        throw new Error(`Failed to load PDF (${res.status} ${res.statusText}). Check the file name & path.`);
-      }
+      if (!res.ok) throw new Error(`Failed to load PDF (${res.status} ${res.statusText}). Check the file name & path.`);
       return await res.arrayBuffer();
     }
 
@@ -60,7 +58,6 @@
       const num = parseInt(holder.dataset.page, 10);
       const page = await pdfDoc.getPage(num);
 
-      // Fit-to-width scale
       const vw = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
       const base = page.getViewport({ scale: 1 });
       const scale = vw / base.width;
@@ -87,10 +84,9 @@
 
     (async () => {
       try {
-        const bytes = await fetchPdfBytes(PDF_URL);              // <— clearer errors if 404
+        const bytes = await fetchPdfBytes(PDF_URL);
         pdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise;
 
-        // Build lightweight placeholders for each page
         for (let i = 1; i <= pdfDoc.numPages; i++) {
           const sec = document.createElement("section");
           sec.className = "page";
