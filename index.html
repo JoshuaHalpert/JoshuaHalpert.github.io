@@ -1,3 +1,4 @@
+<!-- ⚡ HTML structure, CSS and JS combined - START -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -21,12 +22,12 @@
       border-bottom: 1px solid #191c22;
     }
     header h1 { font-size: 1rem; margin: 0; font-weight: 600; opacity: .9; }
-    header .zoom { margin-left: auto; display: inline-flex; gap: .5rem; align-items: center; }
-    header .zoom button {
+    .zoom { margin-left: auto; display: inline-flex; gap: .5rem; align-items: center; }
+    .zoom button {
       background: #1a1f29; color: #e8e8e8; border: 1px solid #2a2f3a;
       padding: .35rem .6rem; border-radius: .5rem; cursor: pointer;
     }
-    header .zoom button:hover { background: #222838; }
+    .zoom button:hover { background: #222838; }
     #pdf-scroll {
       height: calc(100vh - 52px);
       overflow: auto; -webkit-overflow-scrolling: touch;
@@ -39,10 +40,18 @@
       width: 100%; height: auto;
       box-shadow: 0 8px 28px rgba(0,0,0,.45);
       border-radius: 8px;
-      background: #fff; /* white CSS background for safety */
+      background: #fff;
     }
     .hint { font-size: .9rem; opacity: .7; margin: .25rem auto 0; text-align: center; width: min(100%, 1100px); }
     .error { color: #ff6b6b; }
+    .project-title {
+      font-size: 1.2rem;
+      margin-top: 2rem;
+      margin-bottom: 0.5rem;
+      color: #e8e8e8;
+      font-weight: bold;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -57,118 +66,95 @@
 
   <div id="pdf-scroll" role="main" aria-label="PDF content"></div>
 
-  <!-- pdf.js (no integrity attribute to avoid SRI mismatch) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
-    // ---------- CONFIG ----------
-    const PDF_URL = "JoshuaHalpertPortfolio.pdf"; // same folder as index.html
-    const MAX_PAGE_CSS_WIDTH = 1100;      // cap desktop width
-    const BASE_ZOOM = 1;
-    const ZOOM_STEP = 0.1;
-    // ----------------------------
-
-    // Cap DPR to avoid huge canvases that can turn black on some devices.
     const DPR_CAP = 2.0;
     const outputScale = Math.min(window.devicePixelRatio || 1, DPR_CAP);
+    const MAX_PAGE_CSS_WIDTH = 1100;
+    const ZOOM_STEP = 0.1;
 
     const container = document.getElementById("pdf-scroll");
     const zoomPct = document.getElementById("zoomPct");
     const btnIn = document.getElementById("zoomIn");
     const btnOut = document.getElementById("zoomOut");
-    let cssZoom = BASE_ZOOM;
-    let pdfDoc = null;
+    let cssZoom = 1;
 
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-    const debounce = (fn, ms=180) => { let t; return (...a)=>{clearTimeout(t); t=setTimeout(()=>fn(...a),ms);} };
+    const renderPage = async (pdfDoc, pageNum, containerTarget) => {
+      const page = await pdfDoc.getPage(pageNum);
+      const baseViewport = page.getViewport({ scale: 1 });
+      const aspect = baseViewport.height / baseViewport.width;
+      const cssW = Math.min(containerTarget.clientWidth, MAX_PAGE_CSS_WIDTH) * cssZoom;
+      const scale = cssW / baseViewport.width;
+      const viewport = page.getViewport({ scale });
 
-    function pageShell(pageNum) {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = Math.floor(viewport.width * outputScale);
+      canvas.height = Math.floor(viewport.height * outputScale);
+      canvas.style.width = `${viewport.width}px`;
+      canvas.style.height = `${viewport.height}px`;
+
+      ctx.imageSmoothingEnabled = false;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      await page.render({
+        canvasContext: ctx,
+        viewport,
+        transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null
+      }).promise;
+
       const wrap = document.createElement("div");
       wrap.className = "page";
-      wrap.dataset.page = String(pageNum);
-      const canvas = document.createElement("canvas");
+      wrap.appendChild(canvas);
+      containerTarget.appendChild(wrap);
+
       const hint = document.createElement("div");
       hint.className = "hint";
       hint.textContent = `Page ${pageNum}`;
-      wrap.appendChild(canvas);
-      container.appendChild(wrap);
-      container.appendChild(hint);
-      return { wrap, canvas };
-    }
+      containerTarget.appendChild(hint);
+    };
 
-    // Render at CSS size for layout but high-resolution backing pixels for crispness.
-    async function renderPage(pageNum, canvas, cssWidth) {
-      const page = await pdfDoc.getPage(pageNum);
+    const renderPDF = async (pdfUrl, label = "") => {
+      const pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
 
-      // Let pdf.js handle intrinsic page rotation internally.
-      const baseViewport = page.getViewport({ scale: 1 });
-      const aspect = baseViewport.height / baseViewport.width;
-
-      const cssW = Math.min(cssWidth, MAX_PAGE_CSS_WIDTH) * cssZoom;
-      const cssH = cssW * aspect;
-
-      // Scale to match desired CSS width.
-      const scaleForCSS = cssW / baseViewport.width;
-      const viewport = page.getViewport({ scale: scaleForCSS });
-
-      // High-DPI backing store.
-      canvas.width  = Math.floor(viewport.width  * outputScale);
-      canvas.height = Math.floor(viewport.height * outputScale);
-      canvas.style.width  = `${viewport.width}px`;
-      canvas.style.height = `${viewport.height}px`;
-
-      const ctx = canvas.getContext("2d"); // default alpha:true
-      ctx.imageSmoothingEnabled = false;
-
-      // Always paint a white background to avoid black-rectangle artifacts.
-      ctx.save();
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.restore();
-
-      const renderContext = {
-        canvasContext: ctx,
-        viewport,
-        transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null,
-      };
-
-      await page.render(renderContext).promise;
-    }
-
-    // Re-render visible pages on resize/zoom.
-    const rerenderVisible = debounce(async () => {
-      const cssWidth = container.clientWidth - 16;
-      for (const wrap of container.querySelectorAll(".page")) {
-        const rect = wrap.getBoundingClientRect();
-        const near = rect.bottom > 0 && rect.top < window.innerHeight + 600;
-        if (!near) continue;
-        const pageNum = Number(wrap.dataset.page);
-        const canvas = wrap.querySelector("canvas");
-        await renderPage(pageNum, canvas, cssWidth);
+      if (label) {
+        const heading = document.createElement("div");
+        heading.className = "project-title";
+        heading.textContent = label;
+        container.appendChild(heading);
       }
+
+      for (let i = 1; i <= pdfDoc.numPages; i++) {
+        await renderPage(pdfDoc, i, container);
+      }
+    };
+
+    btnIn.addEventListener("click", () => {
+      cssZoom = Math.min(3, cssZoom + ZOOM_STEP);
+      reloadAll();
+    });
+
+    btnOut.addEventListener("click", () => {
+      cssZoom = Math.max(0.5, cssZoom - ZOOM_STEP);
+      reloadAll();
+    });
+
+    window.addEventListener("resize", () => reloadAll());
+
+    async function reloadAll() {
+      container.innerHTML = "";
+      await renderPDF("JoshuaHalpertPortfolio.pdf");
+      await renderPDF("Outdoor Active Workstation Design Report.pdf", "Outdoor Active Workstation Design Report");
+      await renderPDF("Pulse Oximeter Reverse Engineering Report.pdf", "Pulse Oximeter Reverse Engineering Report");
       zoomPct.textContent = `${Math.round(cssZoom * 100)}%`;
-    }, 120);
+    }
 
-    btnIn.addEventListener("click", () => { cssZoom = Math.min(3, cssZoom + ZOOM_STEP); rerenderVisible(); });
-    btnOut.addEventListener("click", () => { cssZoom = Math.max(0.5, cssZoom - ZOOM_STEP); rerenderVisible(); });
-    window.addEventListener("resize", rerenderVisible);
-    window.addEventListener("orientationchange", () => setTimeout(rerenderVisible, 200));
-
-    (async () => {
-      try {
-        pdfDoc = await pdfjsLib.getDocument(PDF_URL).promise;
-        for (let p = 1; p <= pdfDoc.numPages; p++) {
-          const { canvas } = pageShell(p);
-          // initial render (fit-to-width, high DPI)
-          await renderPage(p, canvas, container.clientWidth - 16);
-        }
-      } catch (err) {
-        container.innerHTML =
-          `<p class="error">Could not load PDF. Ensure <code>${PDF_URL}</code> is next to <code>index.html</code>.</p>`;
-        console.error(err);
-      }
-    })();
+    reloadAll();
   </script>
 </body>
 </html>
+<!-- ⚡ HTML structure, CSS and JS combined - END -->
