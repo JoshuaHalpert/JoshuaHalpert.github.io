@@ -52,7 +52,7 @@
       margin-top: 0.25rem;
     }
 
-    /* SECONDARY REPORTS */
+    /* CONTAINER STYLE FOR SECONDARY REPORTS */
     .pdf-container {
       width: min(100%, 1100px);
       margin: 2rem auto;
@@ -70,16 +70,22 @@
       margin: 0;
     }
 
-    .pdf-container iframe {
-      width: 100%;
+    .pdf-wrapper {
       height: 800px;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .pdf-wrapper iframe {
+      width: 100%;
+      height: 100%;
       border: none;
       background: #fff;
       display: block;
     }
 
     @media (max-width: 600px) {
-      .pdf-container iframe {
+      .pdf-wrapper {
         height: 600px;
       }
     }
@@ -88,22 +94,26 @@
 <body>
   <h1>Joshua Halpert Portfolio</h1>
 
-  <!-- MAIN PORTFOLIO USING PDF.js -->
+  <!-- MAIN PORTFOLIO (RENDERED) -->
   <div id="pdf-scroll" aria-label="Main Portfolio PDF"></div>
 
   <!-- OUTDOOR WORKSTATION REPORT -->
   <div class="pdf-container">
     <h2>Outdoor Active Workstation Design Report</h2>
-    <iframe src="OutdoorActiveWorkstationDesignReport.pdf" title="Outdoor Workstation PDF"></iframe>
+    <div class="pdf-wrapper">
+      <iframe src="OutdoorActiveWorkstationDesignReport.pdf" title="Outdoor Workstation PDF"></iframe>
+    </div>
   </div>
 
   <!-- PULSE OXIMETER REPORT -->
   <div class="pdf-container">
     <h2>Pulse Oximeter Reverse Engineering Report</h2>
-    <iframe src="PulseOximeterReverseEngineeringReport.pdf" title="Pulse Oximeter PDF"></iframe>
+    <div class="pdf-wrapper">
+      <iframe src="PulseOximeterReverseEngineeringReport.pdf" title="Pulse Oximeter PDF"></iframe>
+    </div>
   </div>
 
-  <!-- PDF.js LIBRARY + SCRIPT -->
+  <!-- PDF.js LIBRARY -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
     const PDF_URL = "JoshuaHalpertPortfolio.pdf";
