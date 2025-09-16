@@ -23,20 +23,36 @@
       font-weight: 600;
     }
 
-    /* MAIN PORTFOLIO FULL WIDTH */
-    .main-portfolio {
-      margin: 2rem 0;
+    /* MAIN PORTFOLIO CANVAS-BASED VIEW */
+    #pdf-scroll {
+      padding: 2rem 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
     }
 
-    .main-portfolio iframe {
+    .page {
+      width: min(100%, 1100px);
+    }
+
+    canvas {
       display: block;
       width: 100%;
-      height: 100vh;
-      border: none;
+      height: auto;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+      border-radius: 8px;
       background: #fff;
     }
 
-    /* SECONDARY REPORTS: STYLED CONTAINERS */
+    .hint {
+      font-size: 0.9rem;
+      opacity: 0.7;
+      text-align: center;
+      margin-top: 0.25rem;
+    }
+
+    /* SECONDARY REPORTS */
     .pdf-container {
       width: min(100%, 1100px);
       margin: 2rem auto;
@@ -44,7 +60,6 @@
       border-radius: 8px;
       overflow: hidden;
       box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
-      position: relative;
     }
 
     .pdf-container h2 {
@@ -59,13 +74,12 @@
       width: 100%;
       height: 800px;
       border: none;
-      display: block;
       background: #fff;
+      display: block;
     }
 
     @media (max-width: 600px) {
-      .pdf-container iframe,
-      .main-portfolio iframe {
+      .pdf-container iframe {
         height: 600px;
       }
     }
@@ -74,10 +88,8 @@
 <body>
   <h1>Joshua Halpert Portfolio</h1>
 
-  <!-- MAIN PORTFOLIO - FULL WIDTH -->
-  <div class="main-portfolio">
-    <iframe src="JoshuaHalpertPortfolio.pdf" title="Main Portfolio PDF"></iframe>
-  </div>
+  <!-- MAIN PORTFOLIO USING PDF.js -->
+  <div id="pdf-scroll" aria-label="Main Portfolio PDF"></div>
 
   <!-- OUTDOOR WORKSTATION REPORT -->
   <div class="pdf-container">
@@ -90,5 +102,67 @@
     <h2>Pulse Oximeter Reverse Engineering Report</h2>
     <iframe src="PulseOximeterReverseEngineeringReport.pdf" title="Pulse Oximeter PDF"></iframe>
   </div>
+
+  <!-- PDF.js LIBRARY + SCRIPT -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    const PDF_URL = "JoshuaHalpertPortfolio.pdf";
+    const MAX_PAGE_CSS_WIDTH = 1100;
+    const DPR_CAP = 2.0;
+    const outputScale = Math.min(window.devicePixelRatio || 1, DPR_CAP);
+
+    const container = document.getElementById("pdf-scroll");
+
+    function pageShell(pageNum) {
+      const wrap = document.createElement("div");
+      wrap.className = "page";
+      wrap.dataset.page = String(pageNum);
+      const canvas = document.createElement("canvas");
+      const hint = document.createElement("div");
+      hint.className = "hint";
+      hint.textContent = `Page ${pageNum}`;
+      wrap.appendChild(canvas);
+      container.appendChild(wrap);
+      container.appendChild(hint);
+      return { canvas };
+    }
+
+    async function renderPage(pageNum, canvas, cssWidth, pdfDoc) {
+      const page = await pdfDoc.getPage(pageNum);
+      const baseViewport = page.getViewport({ scale: 1 });
+      const aspect = baseViewport.height / baseViewport.width;
+
+      const cssW = Math.min(cssWidth, MAX_PAGE_CSS_WIDTH);
+      const cssH = cssW * aspect;
+      const scale = cssW / baseViewport.width;
+      const viewport = page.getViewport({ scale });
+
+      canvas.width = Math.floor(viewport.width * outputScale);
+      canvas.height = Math.floor(viewport.height * outputScale);
+      canvas.style.width = `${viewport.width}px`;
+      canvas.style.height = `${viewport.height}px`;
+
+      const ctx = canvas.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      ctx.save();
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+
+      await page.render({
+        canvasContext: ctx,
+        viewport,
+        transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null,
+      }).promise;
+    }
+
+    (async () => {
+      const pdfDoc = await pdfjsLib.getDocument(PDF_URL).promise;
+      for (let p = 1; p <= pdfDoc.numPages; p++) {
+        const { canvas } = pageShell(p);
+        await renderPage(p, canvas, container.clientWidth - 16, pdfDoc);
+      }
+    })();
+  </script>
 </body>
 </html>
