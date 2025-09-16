@@ -1,4 +1,3 @@
-<!-- ⚡ HTML structure, CSS and JS combined - START -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -44,12 +43,19 @@
     }
     .hint { font-size: .9rem; opacity: .7; margin: .25rem auto 0; text-align: center; width: min(100%, 1100px); }
     .error { color: #ff6b6b; }
-    .project-title {
+    .pdf-viewer-embed {
+      width: min(100%, 1100px);
+      height: 900px;
+      border: none;
+      border-radius: 8px;
+      box-shadow: 0 8px 28px rgba(0,0,0,.45);
+      background: #fff;
+    }
+    .pdf-section-title {
       font-size: 1.2rem;
       margin-top: 2rem;
-      margin-bottom: 0.5rem;
-      color: #e8e8e8;
-      font-weight: bold;
+      margin-bottom: 1rem;
+      font-weight: 600;
       text-align: center;
     }
   </style>
@@ -58,9 +64,9 @@
   <header>
     <h1>Joshua Halpert — Portfolio</h1>
     <div class="zoom" aria-label="Zoom controls">
-      <button id="zoomOut" title="Zoom out">−</button>
+      <button id="zoomOut">−</button>
       <span id="zoomPct">100%</span>
-      <button id="zoomIn" title="Zoom in">+</button>
+      <button id="zoomIn">+</button>
     </div>
   </header>
 
@@ -68,25 +74,27 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
-    const DPR_CAP = 2.0;
-    const outputScale = Math.min(window.devicePixelRatio || 1, DPR_CAP);
-    const MAX_PAGE_CSS_WIDTH = 1100;
-    const ZOOM_STEP = 0.1;
-
     const container = document.getElementById("pdf-scroll");
     const zoomPct = document.getElementById("zoomPct");
     const btnIn = document.getElementById("zoomIn");
     const btnOut = document.getElementById("zoomOut");
-    let cssZoom = 1;
+    const BASE_ZOOM = 1;
+    const ZOOM_STEP = 0.1;
+    let cssZoom = BASE_ZOOM;
+
+    const DPR_CAP = 2.0;
+    const outputScale = Math.min(window.devicePixelRatio || 1, DPR_CAP);
+    const MAX_PAGE_CSS_WIDTH = 1100;
 
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-    const renderPage = async (pdfDoc, pageNum, containerTarget) => {
+    async function renderPage(pdfDoc, pageNum) {
       const page = await pdfDoc.getPage(pageNum);
       const baseViewport = page.getViewport({ scale: 1 });
       const aspect = baseViewport.height / baseViewport.width;
-      const cssW = Math.min(containerTarget.clientWidth, MAX_PAGE_CSS_WIDTH) * cssZoom;
+
+      const cssW = Math.min(container.clientWidth, MAX_PAGE_CSS_WIDTH) * cssZoom;
       const scale = cssW / baseViewport.width;
       const viewport = page.getViewport({ scale });
 
@@ -110,51 +118,55 @@
       const wrap = document.createElement("div");
       wrap.className = "page";
       wrap.appendChild(canvas);
-      containerTarget.appendChild(wrap);
+      container.appendChild(wrap);
 
       const hint = document.createElement("div");
       hint.className = "hint";
       hint.textContent = `Page ${pageNum}`;
-      containerTarget.appendChild(hint);
-    };
+      container.appendChild(hint);
+    }
 
-    const renderPDF = async (pdfUrl, label = "") => {
-      const pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
-
-      if (label) {
-        const heading = document.createElement("div");
-        heading.className = "project-title";
-        heading.textContent = label;
-        container.appendChild(heading);
-      }
-
+    async function renderMainPortfolio() {
+      const pdfDoc = await pdfjsLib.getDocument("JoshuaHalpertPortfolio.pdf").promise;
       for (let i = 1; i <= pdfDoc.numPages; i++) {
-        await renderPage(pdfDoc, i, container);
+        await renderPage(pdfDoc, i);
       }
-    };
+    }
+
+    function embedPDFViewer(title, url) {
+      const heading = document.createElement("div");
+      heading.className = "pdf-section-title";
+      heading.textContent = title;
+      container.appendChild(heading);
+
+      const iframe = document.createElement("iframe");
+      iframe.className = "pdf-viewer-embed";
+      iframe.src = url;
+      container.appendChild(iframe);
+    }
 
     btnIn.addEventListener("click", () => {
       cssZoom = Math.min(3, cssZoom + ZOOM_STEP);
-      reloadAll();
+      reload();
     });
-
     btnOut.addEventListener("click", () => {
       cssZoom = Math.max(0.5, cssZoom - ZOOM_STEP);
-      reloadAll();
+      reload();
     });
 
-    window.addEventListener("resize", () => reloadAll());
+    window.addEventListener("resize", () => {
+      reload();
+    });
 
-    async function reloadAll() {
+    async function reload() {
       container.innerHTML = "";
-      await renderPDF("JoshuaHalpertPortfolio.pdf");
-      await renderPDF("Outdoor Active Workstation Design Report.pdf", "Outdoor Active Workstation Design Report");
-      await renderPDF("Pulse Oximeter Reverse Engineering Report.pdf", "Pulse Oximeter Reverse Engineering Report");
+      await renderMainPortfolio();
+      embedPDFViewer("Outdoor Active Workstation Design Report", "Outdoor Active Workstation Design Report.pdf");
+      embedPDFViewer("Pulse Oximeter Reverse Engineering Report", "Pulse Oximeter Reverse Engineering Report.pdf");
       zoomPct.textContent = `${Math.round(cssZoom * 100)}%`;
     }
 
-    reloadAll();
+    reload();
   </script>
 </body>
 </html>
-<!-- ⚡ HTML structure, CSS and JS combined - END -->
