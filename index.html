@@ -1,231 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Joshua Halpert — Portfolio</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Joshua Halpert Portfolio</title>
   <style>
-    :root { color-scheme: dark; }
-    html, body {
+    body {
+      font-family: Arial, sans-serif;
       margin: 0;
-      height: 100%;
-      background: #0f1115;
-      color: #e8e8e8;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-      overflow: hidden;
+      padding: 2rem;
+      background: #f9f9f9;
     }
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 2;
-      background: linear-gradient(180deg, #0f1115, #0f1115cc 70%, transparent);
-      backdrop-filter: blur(4px);
-      padding: .75rem 1rem;
-      display: flex;
-      align-items: center;
-      gap: .75rem;
-      border-bottom: 1px solid #191c22;
-    }
-    header h1 {
-      font-size: 1rem;
-      margin: 0;
-      font-weight: 600;
-      opacity: .9;
-    }
-    .zoom {
-      margin-left: auto;
-      display: inline-flex;
-      gap: .5rem;
-      align-items: center;
-    }
-    .zoom button {
-      background: #1a1f29;
-      color: #e8e8e8;
-      border: 1px solid #2a2f3a;
-      padding: .35rem .6rem;
-      border-radius: .5rem;
-      cursor: pointer;
-    }
-    .zoom button:hover {
-      background: #222838;
-    }
-    #pdf-scroll {
-      height: calc(100vh - 52px);
-      overflow: auto;
-      -webkit-overflow-scrolling: touch;
-      padding: 1rem .5rem 2rem;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1.5rem;
-    }
-    .page {
-      width: min(100%, 1100px);
-      margin: 0 auto;
-    }
-    canvas {
-      display: block;
-      width: 100%;
-      height: auto;
-      box-shadow: 0 8px 28px rgba(0, 0, 0, .45);
-      border-radius: 8px;
-      background: #fff;
-    }
-    .hint {
-      font-size: .9rem;
-      opacity: .7;
-      margin: .25rem auto 0;
+    h1 {
       text-align: center;
-      width: min(100%, 1100px);
     }
-    .error {
-      color: #ff6b6b;
+    .pdf-container {
+      border: 2px dashed #999;
+      margin: 2rem 0;
       padding: 1rem;
-      text-align: center;
+      background: white;
     }
-    .pdf-section-title {
-      font-size: 1.2rem;
-      font-weight: bold;
-      text-align: center;
-      margin-top: 2rem;
-      margin-bottom: 0.5rem;
-      color: #e8e8e8;
-    }
-    .pdf-iframe-wrapper {
-      width: min(100%, 1100px);
-      height: 900px;
-      overflow: hidden;
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 8px 28px rgba(0, 0, 0, .45);
-      padding: 0;
-      margin: 1rem auto;
-      display: flex;
-      flex-direction: column;
-      justify-content: start;
-    }
-    .pdf-iframe-wrapper iframe {
+    iframe {
       width: 100%;
-      height: 100%;
+      height: 80vh;
       border: none;
     }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Joshua Halpert — Portfolio</h1>
-    <div class="zoom" aria-label="Zoom controls">
-      <button id="zoomOut">−</button>
-      <span id="zoomPct">100%</span>
-      <button id="zoomIn">+</button>
-    </div>
-  </header>
+  <h1>Joshua Halpert Portfolio</h1>
 
-  <div id="pdf-scroll" role="main" aria-label="PDF content"></div>
+  <!-- MAIN PORTFOLIO PDF -->
+  <div class="pdf-container">
+    <h2>Main Portfolio</h2>
+    <iframe src="JoshuaHalpertPortfolio.pdf" onerror="this.parentElement.innerHTML='<p style=\'color:red\'>Main Portfolio PDF failed to load. Please ensure the file exists.</p>'"></iframe>
+  </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script>
-    const container = document.getElementById("pdf-scroll");
-    const zoomPct = document.getElementById("zoomPct");
-    const btnIn = document.getElementById("zoomIn");
-    const btnOut = document.getElementById("zoomOut");
+  <!-- OUTDOOR WORKSTATION REPORT -->
+  <div class="pdf-container">
+    <h2>Outdoor Active Workstation Design Report</h2>
+    <iframe src="OutdoorActiveWorkstationDesignReport.pdf" onerror="this.parentElement.innerHTML='<p style=\'color:red\'>Failed to load Outdoor Workstation Report PDF. Please ensure the file exists.</p>'"></iframe>
+  </div>
 
-    const BASE_ZOOM = 1;
-    const ZOOM_STEP = 0.1;
-    let cssZoom = BASE_ZOOM;
-
-    const DPR_CAP = 2.0;
-    const outputScale = Math.min(window.devicePixelRatio || 1, DPR_CAP);
-    const MAX_PAGE_CSS_WIDTH = 1100;
-
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-
-    async function renderPage(pdfDoc, pageNum) {
-      const page = await pdfDoc.getPage(pageNum);
-      const baseViewport = page.getViewport({ scale: 1 });
-      const cssW = Math.min(container.clientWidth, MAX_PAGE_CSS_WIDTH) * cssZoom;
-      const scale = cssW / baseViewport.width;
-      const viewport = page.getViewport({ scale });
-
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      canvas.width = Math.floor(viewport.width * outputScale);
-      canvas.height = Math.floor(viewport.height * outputScale);
-      canvas.style.width = `${viewport.width}px`;
-      canvas.style.height = `${viewport.height}px`;
-
-      ctx.imageSmoothingEnabled = false;
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      await page.render({
-        canvasContext: ctx,
-        viewport,
-        transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null
-      }).promise;
-
-      const wrap = document.createElement("div");
-      wrap.className = "page";
-      wrap.appendChild(canvas);
-      container.appendChild(wrap);
-
-      const hint = document.createElement("div");
-      hint.className = "hint";
-      hint.textContent = `Page ${pageNum}`;
-      container.appendChild(hint);
-    }
-
-    async function renderMainPDF() {
-      const pdfDoc = await pdfjsLib.getDocument("JoshuaHalpertPortfolio.pdf").promise;
-      for (let i = 1; i <= pdfDoc.numPages; i++) {
-        await renderPage(pdfDoc, i);
-      }
-    }
-
-    function embedPDFViewer(title, url) {
-      const heading = document.createElement("div");
-      heading.className = "pdf-section-title";
-      heading.textContent = title;
-      container.appendChild(heading);
-
-      const wrapper = document.createElement("div");
-      wrapper.className = "pdf-iframe-wrapper";
-
-      const iframe = document.createElement("iframe");
-      iframe.src = url;
-
-      // Fallback for loading error
-      iframe.onerror = () => {
-        wrapper.innerHTML = `<div class="error">⚠️ Could not load PDF: <code>${url}</code><br>Make sure the file exists and is correctly named.</div>`;
-      };
-
-      wrapper.appendChild(iframe);
-      container.appendChild(wrapper);
-    }
-
-    btnIn.addEventListener("click", () => {
-      cssZoom = Math.min(3, cssZoom + ZOOM_STEP);
-      reload();
-    });
-
-    btnOut.addEventListener("click", () => {
-      cssZoom = Math.max(0.5, cssZoom - ZOOM_STEP);
-      reload();
-    });
-
-    window.addEventListener("resize", () => reload());
-
-    async function reload() {
-      container.innerHTML = "";
-      await renderMainPDF();
-
-      embedPDFViewer("Outdoor Active Workstation Design Report", "Outdoor_Active_Workstation_Design_Report.pdf");
-      embedPDFViewer("Pulse Oximeter Reverse Engineering Report", "Pulse_Oximeter_Reverse_Engineering_Report.pdf");
-
-      zoomPct.textContent = `${Math.round(cssZoom * 100)}%`;
-    }
-
-    reload();
-  </script>
+  <!-- PULSE OXIMETER REPORT -->
+  <div class="pdf-container">
+    <h2>Pulse Oximeter Reverse Engineering Report</h2>
+    <iframe src="PulseOximeterReverseEngineeringReport.pdf" onerror="this.parentElement.innerHTML='<p style=\'color:red\'>Failed to load Pulse Oximeter Report PDF. Please ensure the file exists.</p>'"></iframe>
+  </div>
 </body>
 </html>
