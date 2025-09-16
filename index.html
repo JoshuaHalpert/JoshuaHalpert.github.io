@@ -3,27 +3,56 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Joshua Halpert Portfolio</title>
+  <title>Joshua Halpert — Portfolio</title>
   <style>
+    :root {
+      color-scheme: dark;
+    }
+
     body {
-      font-family: Arial, sans-serif;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
       margin: 0;
-      padding: 2rem;
-      background: #f9f9f9;
+      padding: 2rem 0;
+      background: #0f1115;
+      color: #e8e8e8;
     }
-    h1 {
+
+    h1, h2 {
       text-align: center;
+      margin: 1rem 0;
+      font-weight: 600;
     }
+
     .pdf-container {
-      border: 2px dashed #999;
-      margin: 2rem 0;
-      padding: 1rem;
-      background: white;
+      width: min(100%, 1100px);
+      margin: 2rem auto;
+      background: #ffffff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+      position: relative;
     }
+
+    .pdf-container h2 {
+      background: #0f1115;
+      color: #e8e8e8;
+      padding: 1rem;
+      font-size: 1.25rem;
+      margin: 0;
+    }
+
     iframe {
       width: 100%;
-      height: 80vh;
+      height: 800px;
       border: none;
+      display: block;
+      background: #fff;
+    }
+
+    @media (max-width: 600px) {
+      iframe {
+        height: 600px;
+      }
     }
   </style>
 </head>
@@ -33,19 +62,19 @@
   <!-- MAIN PORTFOLIO PDF -->
   <div class="pdf-container">
     <h2>Main Portfolio</h2>
-    <iframe src="JoshuaHalpertPortfolio.pdf" onerror="this.parentElement.innerHTML='<p style=\'color:red\'>Main Portfolio PDF failed to load.</p>'"></iframe>
+    <iframe src="JoshuaHalpertPortfolio.pdf" title="Main Portfolio PDF"></iframe>
   </div>
 
   <!-- OUTDOOR WORKSTATION REPORT -->
   <div class="pdf-container">
     <h2>Outdoor Active Workstation Design Report</h2>
-    <iframe src="OutdoorActiveWorkstationDesignReport.pdf" onerror="this.parentElement.innerHTML='<p style=\'color:red\'>Outdoor Workstation Report failed to load.</p>'"></iframe>
+    <iframe src="OutdoorActiveWorkstationDesignReport.pdf" title="Outdoor Workstation PDF"></iframe>
   </div>
 
   <!-- PULSE OXIMETER REPORT -->
   <div class="pdf-container">
     <h2>Pulse Oximeter Reverse Engineering Report</h2>
-    <iframe src="PulseOximeterReverseEngineeringReport.pdf" onerror="this.parentElement.innerHTML='<p style=\'color:red\'>Pulse Oximeter Report failed to load.</p>'"></iframe>
+    <iframe src="PulseOximeterReverseEngineeringReport.pdf" title="Pulse Oximeter PDF"></iframe>
   </div>
 </body>
 </html>
