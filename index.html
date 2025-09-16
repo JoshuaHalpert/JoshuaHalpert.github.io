@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Joshua Halpert — Portfolio</title>
   <style>
     :root {
@@ -23,7 +23,7 @@
       font-weight: 600;
     }
 
-    /* MAIN PORTFOLIO CANVAS-BASED VIEW */
+    /* MAIN PORTFOLIO CANVAS VIEW */
     #pdf-scroll {
       padding: 2rem 0;
       display: flex;
@@ -52,7 +52,7 @@
       margin-top: 0.25rem;
     }
 
-    /* CONTAINER STYLE FOR SECONDARY REPORTS */
+    /* PDF CONTAINER STYLE (SCROLLABLE IFRAME) */
     .pdf-container {
       width: min(100%, 1100px);
       margin: 2rem auto;
@@ -74,19 +74,28 @@
       height: 800px;
       overflow: auto;
       -webkit-overflow-scrolling: touch;
+      display: block;
+      position: relative;
     }
 
     .pdf-wrapper iframe {
       width: 100%;
       height: 100%;
       border: none;
-      background: #fff;
       display: block;
+      background: #fff;
+
+      /* iOS/Safari fixes */
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      -webkit-overflow-scrolling: touch;
+      touch-action: auto;
+      pointer-events: auto;
     }
 
     @media (max-width: 600px) {
       .pdf-wrapper {
-        height: 600px;
+        height: 500px;
       }
     }
   </style>
@@ -94,26 +103,38 @@
 <body>
   <h1>Joshua Halpert Portfolio</h1>
 
-  <!-- MAIN PORTFOLIO (RENDERED) -->
+  <!-- ✅ MAIN PORTFOLIO RENDERED WITH PDF.js -->
   <div id="pdf-scroll" aria-label="Main Portfolio PDF"></div>
 
-  <!-- OUTDOOR WORKSTATION REPORT -->
+  <!-- ✅ OUTDOOR WORKSTATION REPORT (IFRAME) -->
   <div class="pdf-container">
     <h2>Outdoor Active Workstation Design Report</h2>
     <div class="pdf-wrapper">
-      <iframe src="OutdoorActiveWorkstationDesignReport.pdf" title="Outdoor Workstation PDF"></iframe>
+      <iframe
+        src="OutdoorActiveWorkstationDesignReport.pdf"
+        title="Outdoor Workstation PDF"
+        loading="lazy"
+        sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+        allowfullscreen
+      ></iframe>
     </div>
   </div>
 
-  <!-- PULSE OXIMETER REPORT -->
+  <!-- ✅ PULSE OXIMETER REPORT (IFRAME) -->
   <div class="pdf-container">
     <h2>Pulse Oximeter Reverse Engineering Report</h2>
     <div class="pdf-wrapper">
-      <iframe src="PulseOximeterReverseEngineeringReport.pdf" title="Pulse Oximeter PDF"></iframe>
+      <iframe
+        src="PulseOximeterReverseEngineeringReport.pdf"
+        title="Pulse Oximeter PDF"
+        loading="lazy"
+        sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+        allowfullscreen
+      ></iframe>
     </div>
   </div>
 
-  <!-- PDF.js LIBRARY -->
+  <!-- ✅ PDF.js SCRIPT -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
     const PDF_URL = "JoshuaHalpertPortfolio.pdf";
