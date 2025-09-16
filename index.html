@@ -19,10 +19,24 @@
 
     h1, h2 {
       text-align: center;
-      margin: 1rem 0;
+      margin: 1.5rem 0;
       font-weight: 600;
     }
 
+    /* MAIN PORTFOLIO FULL WIDTH */
+    .main-portfolio {
+      margin: 2rem 0;
+    }
+
+    .main-portfolio iframe {
+      display: block;
+      width: 100%;
+      height: 100vh;
+      border: none;
+      background: #fff;
+    }
+
+    /* SECONDARY REPORTS: STYLED CONTAINERS */
     .pdf-container {
       width: min(100%, 1100px);
       margin: 2rem auto;
@@ -41,7 +55,7 @@
       margin: 0;
     }
 
-    iframe {
+    .pdf-container iframe {
       width: 100%;
       height: 800px;
       border: none;
@@ -50,7 +64,8 @@
     }
 
     @media (max-width: 600px) {
-      iframe {
+      .pdf-container iframe,
+      .main-portfolio iframe {
         height: 600px;
       }
     }
@@ -59,9 +74,8 @@
 <body>
   <h1>Joshua Halpert Portfolio</h1>
 
-  <!-- MAIN PORTFOLIO PDF -->
-  <div class="pdf-container">
-    <h2>Main Portfolio</h2>
+  <!-- MAIN PORTFOLIO - FULL WIDTH -->
+  <div class="main-portfolio">
     <iframe src="JoshuaHalpertPortfolio.pdf" title="Main Portfolio PDF"></iframe>
   </div>
 
