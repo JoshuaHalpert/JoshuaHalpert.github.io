@@ -15,11 +15,15 @@
       overflow: hidden;
     }
     header {
-      position: sticky; top: 0; z-index: 2;
-      background: linear-gradient(180deg,#0f1115,#0f1115cc 70%,transparent);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: linear-gradient(180deg, #0f1115, #0f1115cc 70%, transparent);
       backdrop-filter: blur(4px);
       padding: .75rem 1rem;
-      display: flex; align-items: center; gap: .75rem;
+      display: flex;
+      align-items: center;
+      gap: .75rem;
       border-bottom: 1px solid #191c22;
     }
     header h1 {
@@ -42,7 +46,9 @@
       border-radius: .5rem;
       cursor: pointer;
     }
-    .zoom button:hover { background: #222838; }
+    .zoom button:hover {
+      background: #222838;
+    }
     #pdf-scroll {
       height: calc(100vh - 52px);
       overflow: auto;
@@ -61,7 +67,7 @@
       display: block;
       width: 100%;
       height: auto;
-      box-shadow: 0 8px 28px rgba(0,0,0,.45);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, .45);
       border-radius: 8px;
       background: #fff;
     }
@@ -72,22 +78,29 @@
       text-align: center;
       width: min(100%, 1100px);
     }
-    .error { color: #ff6b6b; }
+    .error {
+      color: #ff6b6b;
+    }
     .pdf-section-title {
       font-size: 1.2rem;
       font-weight: bold;
       text-align: center;
-      margin-top: 1rem;
-      margin-bottom: .5rem;
+      margin-top: 2rem;
+      margin-bottom: 0.5rem;
       color: #e8e8e8;
     }
     .pdf-iframe-wrapper {
       width: min(100%, 1100px);
       height: 900px;
       overflow: hidden;
-      border-radius: 8px;
-      box-shadow: 0 8px 28px rgba(0,0,0,.45);
       background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, .45);
+      padding: 0;
+      margin: 1rem auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: start;
     }
     .pdf-iframe-wrapper iframe {
       width: 100%;
@@ -114,6 +127,7 @@
     const zoomPct = document.getElementById("zoomPct");
     const btnIn = document.getElementById("zoomIn");
     const btnOut = document.getElementById("zoomOut");
+
     const BASE_ZOOM = 1;
     const ZOOM_STEP = 0.1;
     let cssZoom = BASE_ZOOM;
@@ -122,14 +136,11 @@
     const outputScale = Math.min(window.devicePixelRatio || 1, DPR_CAP);
     const MAX_PAGE_CSS_WIDTH = 1100;
 
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
     async function renderPage(pdfDoc, pageNum) {
       const page = await pdfDoc.getPage(pageNum);
       const baseViewport = page.getViewport({ scale: 1 });
-      const aspect = baseViewport.height / baseViewport.width;
-
       const cssW = Math.min(container.clientWidth, MAX_PAGE_CSS_WIDTH) * cssZoom;
       const scale = cssW / baseViewport.width;
       const viewport = page.getViewport({ scale });
